@@ -11,8 +11,7 @@ export async function playerSteps(page, { check, SHOTS }) {
     navigator.vibrate = (p) => { window.__vibrations.push(p); return true; };
   });
 
-  await page.click('[data-tab="plan"]');
-  await page.locator('[data-testid="start"]').first().click();
+  await page.click('[data-testid="start"]');
   await page.waitForSelector('[data-testid="player"]');
   await waitImgs(page, '.demo-large img');
   const rows = await page.locator('[data-testid="set-row"]').count();
@@ -49,8 +48,11 @@ export async function playerSteps(page, { check, SHOTS }) {
   const vib = await page.evaluate(() => window.__vibrations.length);
   check(vib >= 1 && await page.locator('[data-testid="rest"]').count() === 0, `rest finish vibrates (${vib} call) and closes`);
 
-  // in-progress workout survives reload
+  // in-progress workout survives reload → home shows Resume
   await page.reload({ waitUntil: 'networkidle' });
+  await page.waitForSelector('[data-testid="resume"]');
+  check(true, 'home shows Resume for the in-progress workout after reload');
+  await page.click('[data-testid="resume"]');
   await page.waitForSelector('[data-testid="player"]');
   const doneAfterReload = await page.locator('.set-row.done').count();
   check(doneAfterReload === 2, `in-progress workout restored after reload (${doneAfterReload} done sets)`);
