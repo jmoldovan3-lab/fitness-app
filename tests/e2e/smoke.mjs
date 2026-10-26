@@ -10,7 +10,7 @@ const URL_ = `http://localhost:${PORT}/`;
 const SHOTS = process.env.SHOTS_DIR ?? '/workspace/fitness-shots';
 await fs.mkdir(SHOTS, { recursive: true });
 
-const server = spawn('npx', ['vite', 'preview', '--port', String(PORT), '--strictPort'], { stdio: 'pipe' });
+const server = spawn(process.execPath, ['node_modules/vite/bin/vite.js', 'preview', '--port', String(PORT), '--strictPort'], { stdio: 'pipe' });
 const stop = () => server.kill('SIGTERM');
 process.on('exit', stop);
 await new Promise((resolve, reject) => {

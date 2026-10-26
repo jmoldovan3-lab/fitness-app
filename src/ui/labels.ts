@@ -13,7 +13,7 @@ export const EQUIPMENT: [Equipment, string][] = [
 
 export const asset = (p: string) => `${import.meta.env.BASE_URL}${p}`;
 
-export function rxText(e: PlannedExercise): string {
+export function rxText(e: Pick<PlannedExercise, 'sets' | 'repMin' | 'repMax' | 'unit'>): string {
   const reps = e.repMin === e.repMax ? `${e.repMin}` : `${e.repMin}–${e.repMax}`;
   return `${e.sets} × ${reps}${e.unit === 'sec' ? 's' : ''}`;
 }

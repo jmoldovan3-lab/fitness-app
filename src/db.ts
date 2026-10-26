@@ -55,14 +55,14 @@ export async function listSessions(d: FitnessDB = db): Promise<SessionWithSets[]
   const all = await d.sets.where('sessionId').anyOf(sessions.map((s) => s.id!)).toArray();
   return sessions.map((session) => ({
     session,
-    sets: all.filter((s) => s.sessionId === session.id).sort((a, b) => a.setIndex - b.setIndex),
+    sets: all.filter((s) => s.sessionId === session.id).sort((a, b) => a.id! - b.id!),
   }));
 }
 
 export async function getSession(id: number, d: FitnessDB = db): Promise<SessionWithSets | undefined> {
   const session = await d.sessions.get(id);
   if (!session) return undefined;
-  const sets = (await d.sets.where('sessionId').equals(id).toArray()).sort((a, b) => a.setIndex - b.setIndex);
+  const sets = (await d.sets.where('sessionId').equals(id).toArray()).sort((a, b) => a.id! - b.id!);
   return { session, sets };
 }
 
