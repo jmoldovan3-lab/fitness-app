@@ -1,0 +1,126 @@
+import Dexie, { type Table } from 'dexie';
+import type { Plan, Profile, Session, SetLog, SettingRow } from './types';
+
+export class FitnessDB extends Dexie {
+  settings!: Table<SettingRow, string>;
+  plans!: Table<Plan, number>;
+  sessions!: Table<Session, number>;
+  sets!: Table<SetLog, number>;
+
+  constructor(name = 'fitness') {
+    super(name);
+    this.version(1).stores({
+      settings: 'key',
+      plans: '++id, createdAt',
+      sessions: '++id, type, startedAt',
+      sets: '++id, sessionId, exerciseId, [exerciseId+completedAt]',
+    });
+  }
+}
+
+export const db = new FitnessDB();
+
+// ---- profile / plan ----
+export async function getProfile(d: FitnessDB = db): Promise<Profile | undefined> {
+  return (await d.settings.get('profile'))?.value as Profile | undefined;
+}
+export async function saveProfile(p: Profile, d: FitnessDB = db) {
+  await d.settings.put({ key: 'profile', value: p });
+}
+export async function getCurrentPlan(d: FitnessDB = db): Promise<Plan | undefined> {
+  const id = (await d.settings.get('currentPlanId'))?.value as number | undefined;
+  return id != null ? d.plans.get(id) : undefined;
+}
+export async function savePlan(plan: Plan, d: FitnessDB = db): Promise<number> {
+  return d.transaction('rw', d.plans, d.settings, async () => {
+    const id = await d.plans.add({ ...plan, id: undefined });
+    await d.settings.put({ key: 'currentPlanId', value: id });
+    return id;
+  });
+}
+
+// ---- sessions ----
+export async function saveSession(session: Session, sets: Omit<SetLog, 'sessionId' | 'id'>[], d: FitnessDB = db): Promise<number> {
+  return d.transaction('rw', d.sessions, d.sets, async () => {
+    const sessionId = await d.sessions.add({ ...session, id: undefined });
+    await d.sets.bulkAdd(sets.map((s) => ({ ...s, sessionId })));
+    return sessionId;
+  });
+}
+
+export interface SessionWithSets { session: Session; sets: SetLog[] }
+
+export async function listSessions(d: FitnessDB = db): Promise<SessionWithSets[]> {
+  const sessions = await d.sessions.orderBy('startedAt').reverse().toArray();
+  const all = await d.sets.where('sessionId').anyOf(sessions.map((s) => s.id!)).toArray();
+  return sessions.map((session) => ({
+    session,
+    sets: all.filter((s) => s.sessionId === session.id).sort((a, b) => a.setIndex - b.setIndex),
+  }));
+}
+
+export async function getSession(id: number, d: FitnessDB = db): Promise<SessionWithSets | undefined> {
+  const session = await d.sessions.get(id);
+  if (!session) return undefined;
+  const sets = (await d.sets.where('sessionId').equals(id).toArray()).sort((a, b) => a.setIndex - b.setIndex);
+  return { session, sets };
+}
+
+/** Most recent completed set for an exercise (used to pre-fill weight). */
+export async function lastSetFor(exerciseId: string, d: FitnessDB = db): Promise<SetLog | undefined> {
+  return d.sets.where('[exerciseId+completedAt]').between([exerciseId, Dexie.minKey], [exerciseId, Dexie.maxKey]).last();
+}
+
+// ---- in-progress workout draft ----
+export async function getDraft<T>(d: FitnessDB = db): Promise<T | undefined> {
+  return (await d.settings.get('activeWorkout'))?.value as T | undefined;
+}
+export async function saveDraft(value: unknown, d: FitnessDB = db) {
+  await d.settings.put({ key: 'activeWorkout', value });
+}
+export async function clearDraft(d: FitnessDB = db) {
+  await d.settings.delete('activeWorkout');
+}
+
+// ---- export / import ----
+export interface ExportFile {
+  app: 'fitness-app';
+  version: 1;
+  exportedAt: string;
+  settings: SettingRow[];
+  plans: Plan[];
+  sessions: Session[];
+  sets: SetLog[];
+}
+
+export async function exportAll(d: FitnessDB = db): Promise<ExportFile> {
+  return d.transaction('r', [d.settings, d.plans, d.sessions, d.sets], async () => ({
+    app: 'fitness-app' as const,
+    version: 1 as const,
+    exportedAt: new Date().toISOString(),
+    settings: await d.settings.toArray(),
+    plans: await d.plans.toArray(),
+    sessions: await d.sessions.toArray(),
+    sets: await d.sets.toArray(),
+  }));
+}
+
+export function validateExport(data: unknown): asserts data is ExportFile {
+  const f = data as ExportFile;
+  if (!f || f.app !== 'fitness-app' || f.version !== 1) throw new Error('Not a fitness-app export file');
+  for (const k of ['settings', 'plans', 'sessions', 'sets'] as const) {
+    if (!Array.isArray(f[k])) throw new Error(`Export file is missing "${k}"`);
+  }
+}
+
+/** Replaces all user data with the contents of an export file. */
+export async function importAll(data: unknown, d: FitnessDB = db): Promise<void> {
+  validateExport(data);
+  await d.transaction('rw', [d.settings, d.plans, d.sessions, d.sets], async () => {
+    await Promise.all([d.settings.clear(), d.plans.clear(), d.sessions.clear(), d.sets.clear()]);
+    await d.settings.bulkPut(data.settings);
+    await d.plans.bulkPut(data.plans);
+    await d.sessions.bulkPut(data.sessions);
+    await d.sets.bulkPut(data.sets);
+  });
+}
