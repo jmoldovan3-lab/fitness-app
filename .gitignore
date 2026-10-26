@@ -4,3 +4,7 @@ dist
 test-results
 playwright-report
 *.log
+playwright/.cache
+blob-report
+/test-results/
+*.png.tmp

@@ -1,23 +1,27 @@
 #!/usr/bin/env node
 // Playwright smoke test at iPhone viewport against `vite preview`.
 // Usage: npm run build && node tests/e2e/smoke.mjs   (SHOTS_DIR overrides screenshot dir)
+// Live:  SMOKE_URL=https://jmoldovan3-lab.github.io/fitness-app/ node tests/e2e/smoke.mjs  (no local server)
 import { spawn } from 'node:child_process';
 import fs from 'node:fs/promises';
 import { chromium } from 'playwright';
 
 const PORT = 4173;
-const URL_ = `http://localhost:${PORT}/`;
+const URL_ = process.env.SMOKE_URL ?? `http://localhost:${PORT}/`;
 const SHOTS = process.env.SHOTS_DIR ?? '/workspace/fitness-shots';
 await fs.mkdir(SHOTS, { recursive: true });
 
-const server = spawn(process.execPath, ['node_modules/vite/bin/vite.js', 'preview', '--port', String(PORT), '--strictPort'], { stdio: 'pipe' });
-const stop = () => server.kill('SIGTERM');
-process.on('exit', stop);
-await new Promise((resolve, reject) => {
-  const t = setTimeout(() => reject(new Error('preview did not start')), 20000);
-  server.stdout.on('data', (d) => { if (String(d).includes(String(PORT))) { clearTimeout(t); resolve(); } });
-  server.on('exit', (c) => reject(new Error(`preview exited ${c}`)));
-});
+let stop = () => {};
+if (!process.env.SMOKE_URL) {
+  const server = spawn(process.execPath, ['node_modules/vite/bin/vite.js', 'preview', '--port', String(PORT), '--strictPort'], { stdio: 'pipe' });
+  stop = () => server.kill('SIGTERM');
+  process.on('exit', stop);
+  await new Promise((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error('preview did not start')), 20000);
+    server.stdout.on('data', (d) => { if (String(d).includes(String(PORT))) { clearTimeout(t); resolve(); } });
+    server.on('exit', (c) => reject(new Error(`preview exited ${c}`)));
+  });
+}
 
 let failures = 0;
 const check = (ok, msg) => { console.log(`${ok ? 'PASS' : 'FAIL'} ${msg}`); if (!ok) failures++; };
@@ -84,7 +88,7 @@ try {
   check(imgInfo.loaded > 0, `exercise images loaded (${imgInfo.loaded}/${imgInfo.total} incl. lazy)`);
   const anim = await page.evaluate(() => getComputedStyle(document.querySelector('.demo .demo-b')).animationName);
   check(anim === 'demo-flip', `demo loop animation (${anim})`);
-  await page.screenshot({ path: `${SHOTS}/plan.png` });
+  await page.screenshot({ path: `${SHOTS}/${process.env.SMOKE_URL ? 'live' : 'plan'}.png` });
   await page.screenshot({ path: `${SHOTS}/plan-full.png`, fullPage: true });
 
   // persistence across reload
