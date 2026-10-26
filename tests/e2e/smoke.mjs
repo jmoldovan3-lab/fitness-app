@@ -142,7 +142,9 @@ try {
   const nAfterRemove = await page.locator('[data-testid="built-ex"]').count();
   check(nAfterRemove === order1.length - 1, `remove drops an exercise (${order1.length} → ${nAfterRemove})`);
 
+  await page.waitForTimeout(300); // let the IndexedDB write land
   await page.reload({ waitUntil: 'networkidle' });
+  await page.waitForSelector('[data-testid="built-ex"]', { timeout: 5000 }).catch(() => {});
   check(await page.locator('[data-testid="built-ex"]').count() === nAfterRemove, 'built workout persists across reload');
 
   // --- library ---
