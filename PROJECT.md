@@ -45,11 +45,22 @@ Read this file first before continuing work.
 5. **Progress dashboard**: volume, Epley e1RM (`w × (1 + r/30)`, helper already in `src/stats.ts`), per-lift SVG charts.
 - Later: running, cycling (session types `run`/`ride`), Strava import/sync.
 
-## Known bugs
-- None known yet.
+## Known bugs / limitations
+- iOS Safari ignores `navigator.vibrate`; the rest-finished beep is muted by the iPhone silent switch, and timers pause while the PWA is backgrounded (the timer is timestamp-based, so it shows the right time on return, but the alert fires only when the app is foregrounded).
+- Plans with very limited equipment (bodyweight only) have no true vertical pull; the plan shows a note and substitutes related movements (e.g. Superman).
+- Exercise demos are two still frames from free-exercise-db, not video.
+- Incomplete (unchecked) sets are not saved with a session.
 
 ## Attribution
 Exercise names, instructions and images: **free-exercise-db** by yuhonas — https://github.com/yuhonas/free-exercise-db — released into the public domain (Unlicense). Images resized/re-encoded to WebP. Credit is also shown on the Settings → About screen.
 
 ## Changelog
-- 0.1.0 (2026-10-26): project scaffold, PWA setup.
+- 0.1.0 (2026-10-26): first slice.
+  - Scaffold: Vite 8 + Preact + TypeScript, vite-plugin-pwa (manifest, Workbox precache incl. all exercise images, auto-update), Apple meta tags, generated PNG icons (180/192/512 + maskable), configurable `BASE_PATH`.
+  - Exercise data: 101 curated free-exercise-db exercises (all major patterns; barbell, dumbbell, kettlebell, cable, machine, bands, bodyweight, pull-up bar, bench) with 2 WebP frames each; reproducible `npm run curate`.
+  - Dexie data model: settings (profile, current plan id, in-progress workout draft), plans, sessions (`type` discriminator), sets; JSON export/import (Settings screen; uses the iOS share sheet when available).
+  - Deterministic workout generator (seeded) with splits by days/week, equipment filtering, pattern substitution, goal-based prescriptions, session-length fitting.
+  - UI: chip-based onboarding, plan view with looping two-frame thumbnails, bottom tab bar (Plan / History / Progress placeholder / Settings with About + credits).
+  - Workout player: large looping demo, per-set weight/reps logging with weight carry-forward and last-used weight prefill, set check → auto rest timer (+15s / Skip; vibrate + Web Audio beep at the end), add set, how-to instructions, draft survives reload, Finish saves session + completed sets.
+  - History: session list (date, day, exercises, sets, volume) and detail view.
+  - Tests: Vitest (generator, storage + export/import round-trip with fake-indexeddb, workout state, stats) and Playwright iPhone smoke test (`npm run smoke`).
