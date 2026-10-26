@@ -12,12 +12,13 @@ interface Props {
   onChange: (w: ActiveWorkout) => void;
   onFinish: (w: ActiveWorkout) => void;
   onDiscard: () => void;
+  onMinimize: () => void;
 }
 
 const num = (v: string) => { const n = parseFloat(v.replace(',', '.')); return Number.isFinite(n) && n >= 0 ? n : 0; };
 const clock = (sec: number) => `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
 
-export function Player({ workout: w, onChange, onFinish, onDiscard }: Props) {
+export function Player({ workout: w, onChange, onFinish, onDiscard, onMinimize }: Props) {
   const [now, setNow] = useState(Date.now());
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 250); return () => clearInterval(t); }, []);
 
@@ -49,7 +50,7 @@ export function Player({ workout: w, onChange, onFinish, onDiscard }: Props) {
   return (
     <section class="player" data-testid="player">
       <header class="player-head">
-        <button type="button" class="btn ghost" onClick={() => confirm('Discard this workout?') && onDiscard()}>Discard</button>
+        <button type="button" class="btn ghost" data-testid="minimize" aria-label="Back to home (workout keeps running)" onClick={onMinimize}>‹ Home</button>
         <div class="player-title">
           <strong>{w.dayName}</strong>
           <span class="muted small">{clock(Math.floor((now - w.startedAt) / 1000))} · {doneSets} {doneSets === 1 ? "set" : "sets"}</span>
@@ -100,6 +101,7 @@ export function Player({ workout: w, onChange, onFinish, onDiscard }: Props) {
           ? <button type="button" class="btn primary" onClick={finish}>Finish workout</button>
           : <button type="button" class="btn" data-testid="next" onClick={() => onChange(goTo(w, w.current + 1))}>Next ›</button>}
       </div>
+      <button type="button" class="btn ghost danger" data-testid="discard" onClick={() => confirm('Discard this workout?') && onDiscard()}>Discard workout</button>
 
       {w.rest && (
         <div class="rest" role="timer" aria-live="polite" data-testid="rest">

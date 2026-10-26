@@ -46,7 +46,7 @@ export function History({ openId, onOpen }: { openId?: number; onOpen: (id?: num
     <section class="screen" data-testid="history">
       <header class="top"><h1>History</h1></header>
       {!items ? null : items.length === 0 ? (
-        <article class="card"><p class="muted">No workouts yet. Start one from your plan.</p></article>
+        <article class="card"><p class="muted">No workouts yet. Build one on the Workout tab.</p></article>
       ) : items.map(({ session: s, sets }) => {
         const sum = summarize(sets);
         return (

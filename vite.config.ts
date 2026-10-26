@@ -9,6 +9,15 @@ const base = process.env.BASE_PATH ?? '/';
 export default defineConfig({
   base,
   define: { __APP_VERSION__: JSON.stringify(pkg.version) },
+  build: {
+    chunkSizeWarningLimit: 1100,
+    rollupOptions: {
+      output: {
+        // Keep exercise data in its own chunk so app-code updates don't re-download it.
+        manualChunks: (id) => (id.includes('/src/data/exercises') ? 'exercises' : undefined),
+      },
+    },
+  },
   plugins: [
     preact(),
     VitePWA({
@@ -17,7 +26,7 @@ export default defineConfig({
       manifest: {
         name: 'Fitness',
         short_name: 'Fitness',
-        description: 'Personal offline workout planner and logger',
+        description: 'Personal offline workout builder and logger',
         theme_color: '#0f1115',
         background_color: '#0f1115',
         display: 'standalone',
@@ -31,8 +40,18 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,svg,png,webp,json}'],
+        // Precache only the app shell (+ the exercise JSON, bundled in its own JS chunk).
+        // The ~1,750 demo images are cached at runtime (CacheFirst) or via Settings → Download all.
+        globPatterns: ['**/*.{js,css,html,svg,png,json,webmanifest}'],
+        globIgnores: ['exercises/**'],
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+        runtimeCaching: [
+          {
+            urlPattern: ({ url }) => url.pathname.includes('/exercises/') && url.pathname.endsWith('.webp'),
+            handler: 'CacheFirst',
+            options: { cacheName: 'exercise-images', cacheableResponse: { statuses: [200] } },
+          },
+        ],
       },
     }),
   ],
