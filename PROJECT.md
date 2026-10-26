@@ -1,5 +1,7 @@
 # Fitness PWA — PROJECT.md
 
+**Live:** https://jmoldovan3-lab.github.io/fitness-app/ · **Repo:** https://github.com/jmoldovan3-lab/fitness-app (public)
+
 Personal fitness Progressive Web App for молд, installed to the iPhone Home Screen.
 Read this file first before continuing work.
 
@@ -24,6 +26,8 @@ Read this file first before continuing work.
 - `npm run curate` — re-download + re-curate exercises and images (reproducible; cached in `.cache/`)
 - `npm run icons` — regenerate PNG icons
 - `BASE_PATH=/repo-name/ npm run build` — build for a GitHub Pages subpath (default base is `/`).
+- `SMOKE_URL=https://jmoldovan3-lab.github.io/fitness-app/ node tests/e2e/smoke.mjs` — run the smoke test against the live site (no local server; plan screenshot saved as `live.png`).
+- Deploy: push to `main` → GitHub Actions builds and publishes to Pages (or run the workflow manually: `gh workflow run deploy.yml`).
 
 ## Decisions
 - **Exercise data is static and bundled** (`src/data/exercises.json`, imported by the app) rather than copied into a Dexie table: it ships with each app version, needs no migration, and is precached by the service worker. Dexie stores only user data.
@@ -36,6 +40,8 @@ Read this file first before continuing work.
 - Weights are stored in the user's chosen unit as entered (`unit` stored on each set) — no silent conversion.
 - An in-progress workout is persisted to the settings table so a reload/app switch does not lose it.
 - Rest timer is timestamp-based (survives backgrounding); on finish calls `navigator.vibrate` (no-op on iOS Safari) and a short Web Audio beep (AudioContext is unlocked on the set-check tap; the iOS silent switch mutes it).
+- **Hosting: GitHub Pages (free) via GitHub Actions.** Public repo `jmoldovan3-lab/fitness-app`, default branch `main`, Pages `build_type=workflow`. `.github/workflows/deploy.yml` on push to `main` (and manual dispatch): `npm ci` → `npx vitest run` → `npm run build` with `BASE_PATH=/fitness-app/` (read by `vite.config.ts` as `base`, also used for manifest `start_url`/`scope`) → `upload-pages-artifact` (dist) → `deploy-pages`. Tests failing blocks the deploy. No paid features enabled.
+- Asset URLs in code go through `asset()` (`import.meta.env.BASE_URL`) so the app works under the `/fitness-app/` subpath.
 
 ## Feature backlog
 1. **Workout generator** — done (v0.1).
@@ -64,3 +70,7 @@ Exercise names, instructions and images: **free-exercise-db** by yuhonas — htt
   - Workout player: large looping demo, per-set weight/reps logging with weight carry-forward and last-used weight prefill, set check → auto rest timer (+15s / Skip; vibrate + Web Audio beep at the end), add set, how-to instructions, draft survives reload, Finish saves session + completed sets.
   - History: session list (date, day, exercises, sets, volume) and detail view.
   - Tests: Vitest (generator, storage + export/import round-trip with fake-indexeddb, workout state, stats) and Playwright iPhone smoke test (`npm run smoke`).
+- 0.1.1 (2026-10-26): deployed.
+  - GitHub Pages deploy workflow (`.github/workflows/deploy.yml`); live at https://jmoldovan3-lab.github.io/fitness-app/.
+  - Verified live: index, `manifest.webmanifest`, `sw.js`, icons and exercise WebP images all 200 under `/fitness-app/`; full Playwright smoke (iPhone 390×844) passes against the live URL, incl. service worker + offline reload.
+  - Smoke test accepts `SMOKE_URL` to test a deployed site; branch renamed `master` → `main`; `.gitignore` covers Playwright artifacts.
