@@ -1,27 +1,29 @@
 // Pure state helpers for an in-progress strength workout. All functions return new objects.
-import type { Plan, Prescription, Session, SetLog, Units } from './types';
+import type { BuiltWorkout, Focus, Prescription, Session, SetLog, Units } from './types';
 import { completedSetCount, totalVolume } from './stats';
 
 export interface WorkoutSet { weight: number; reps: number; completed: boolean; completedAt?: number }
 export interface WorkoutExercise extends Omit<Prescription, 'sets'> { exerciseId: string; sets: WorkoutSet[] }
 export interface Rest { startedAt: number; endsAt: number; exerciseIndex: number }
 export interface ActiveWorkout {
-  planId?: number;
-  dayIndex: number;
+  /** Session title (named dayName for compatibility with v0.1 drafts). */
   dayName: string;
+  focus?: Focus;
   startedAt: number;
   units: Units;
   current: number;
   exercises: WorkoutExercise[];
   rest?: Rest;
+  /** legacy v0.1 */
+  planId?: number;
+  dayIndex?: number;
 }
 
-export function createWorkout(plan: Plan, dayIndex: number, now: number, lastWeight: Record<string, number> = {}): ActiveWorkout {
-  const day = plan.days[dayIndex];
-  if (!day) throw new RangeError(`No day ${dayIndex} in plan`);
+export function createWorkout(built: BuiltWorkout, units: Units, now: number, lastWeight: Record<string, number> = {}): ActiveWorkout {
+  if (!built.exercises.length) throw new RangeError('Workout has no exercises');
   return {
-    planId: plan.id, dayIndex, dayName: day.name, startedAt: now, units: plan.profile.units, current: 0,
-    exercises: day.exercises.map(({ exerciseId, sets, repMin, repMax, unit, restSec }) => ({
+    dayName: built.title, focus: built.input.focus, startedAt: now, units, current: 0,
+    exercises: built.exercises.map(({ exerciseId, sets, repMin, repMax, unit, restSec }) => ({
       exerciseId, sets: Array.from({ length: sets }, () => ({ weight: lastWeight[exerciseId] ?? 0, reps: repMin, completed: false })),
       repMin, repMax, unit, restSec,
     })),
@@ -86,7 +88,7 @@ export function toRecords(w: ActiveWorkout, now: number): { session: Session; se
       .map(({ exerciseId, setIndex, weight, reps, completed, completedAt }) => ({ exerciseId, setIndex, weight, reps, completed, completedAt, unit: w.units })),
   );
   return {
-    session: { type: 'strength', startedAt: w.startedAt, finishedAt: now, planId: w.planId, dayIndex: w.dayIndex, dayName: w.dayName },
+    session: { type: 'strength', startedAt: w.startedAt, finishedAt: now, dayName: w.dayName, ...(w.focus ? { focus: w.focus } : {}) },
     sets,
   };
 }
